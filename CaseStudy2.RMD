@@ -1,0 +1,345 @@
+---
+title: "Case Study 2"
+author: "Adeel Qureshi"
+date: "2/18/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+
+
+library(psych)
+library(tidyverse)
+library(ggplot2)
+library(naniar)
+library(dplyr)
+library(ggcorrplot)
+library(gridExtra)
+library(grid)
+library(ggthemes)
+library(sqldf)
+library(plotly) 
+library(MASS)
+library(caret)
+library(randomForest)
+library(corrplot)
+library(car)
+
+#load file CaseStudy2-data
+DF = read.csv("/Users/adeel/Desktop/Data Science/Doing Data Science/Homework/Case Study 2/CaseStudy2-data.csv", header=TRUE)
+
+str(DF)
+head(DF)
+
+#drop columns Over18, EmployeeCount & StandardHours that did not add value
+DF_Clean = DF[setdiff(colnames(DF), c('Over18', 'StandardHours','EmployeeCount'))]
+DF_Clean
+
+#check to see if any NA's exist in the dataset
+table(DF_Clean%>% is.na())
+
+#adding the yearly salary to the dataframe
+DF_Clean$AnnualSalary <- DF_Clean$MonthlyIncome * 12
+DF_Clean
+
+
+# histogram of MonthlyIncome with attrition
+ggplot(DF_Clean, aes(x = MonthlyIncome, color = Attrition ))+ geom_histogram(fill="white", alpha = 0.5, position = "identity", binwidth = 500)+ ggtitle("Monthly Income with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# histogram of MonthlyRate with attrition
+ggplot(DF_Clean, aes(x = MonthlyRate, color = Attrition ))+ geom_histogram(fill="white", alpha = 0.5, position = "identity", binwidth = 500)+ ggtitle("Monthly Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# histogram of HourlyRate with attrition
+ggplot(DF_Clean, aes(x = HourlyRate, color = Attrition ))+ geom_histogram(fill="white", alpha = 0.5, position = "identity",binwidth = 1)+ ggtitle("Hourly Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# histogram of DailyRate with attrition
+ggplot(DF_Clean, aes(x = DailyRate, color = Attrition ))+ geom_histogram(fill="white", alpha = 0.5, position = "identity",binwidth = 50)+ ggtitle("Daily Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# histogram of Annualized Monthly Salaries with attrition
+ggplot(DF_Clean, aes(x = AnnualSalary, color = Attrition ))+ geom_histogram(fill="white", alpha = 0.5, position = "identity",binwidth = 500)+ ggtitle("Annualized Monthly Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Boxplot Attrition vs HourlyRate
+ggplot(DF_Clean, aes(Department, HourlyRate)) + geom_boxplot(aes(colour = Attrition))+ggtitle("Hourly Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Boxplot Attrition vs DailyRate
+ggplot(DF_Clean, aes(Department, DailyRate)) + geom_boxplot(aes(colour = Attrition))+ggtitle("Daily Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Boxplot Attrition vs MonthlyRate
+ggplot(DF_Clean, aes(Department, MonthlyRate)) + geom_boxplot(aes(colour = Attrition))+ggtitle("Monthly Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Boxplot Attrition vs MonthlyIncome
+ggplot(DF_Clean, aes(Department, MonthlyIncome)) + geom_boxplot(aes(colour = Attrition))+ggtitle("Monthly Rate with Attrition Distribution")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+#select the columns needed with Diplyr function select
+#pairstest = select(DF_Clean, MonthlyRate, MonthlyIncome, HourlyRate, DailyRate)
+
+
+# Pairwise scatterplot
+#pairs.panels(pairstest[,-5], 
+            # method = "pearson", 
+            # hist.col = "#00AFBB",
+             #density = TRUE,  
+            # ellipses = TRUE 
+             #)
+
+
+#Monthly Rate comparison Monthly Income
+cor.test(DF_Clean$MonthlyRate, DF_Clean$MonthlyIncome)
+
+#Monthly Rate comparison Daily Rate
+cor.test(DF_Clean$MonthlyRate, DF_Clean$DailyRate)
+
+#Monthly Rate comparison Hourly Rate
+cor.test(DF_Clean$MonthlyRate, DF_Clean$HourlyRate)
+
+#Monthly Income comparison Daily Rate
+cor.test(DF_Clean$MonthlyIncome, DF_Clean$DailyRate)
+
+#Monthly Income comparison Hourly Rate
+cor.test(DF_Clean$MonthlyIncome, DF_Clean$HourlyRate)
+
+#Hourly Rate comparison Daily Rate
+cor.test(DF_Clean$HourlyRate, DF_Clean$DailyRate)
+
+#select the variables(columns) for the study
+empatt_data <- DF_Clean %>% dplyr::select(
+  Age, Attrition, BusinessTravel, Department, DistanceFromHome, Education,
+  EducationField, EnvironmentSatisfaction, Gender, JobInvolvement, JobLevel,
+  JobRole, JobSatisfaction, MaritalStatus, MonthlyIncome, NumCompaniesWorked,
+  OverTime, PercentSalaryHike, RelationshipSatisfaction, StockOptionLevel,
+  TotalWorkingYears, TrainingTimesLastYear, WorkLifeBalance, YearsAtCompany,
+  YearsInCurrentRole, YearsSinceLastPromotion, YearsWithCurrManager
+)
+
+#check for NA's in the dataframe
+table(empatt_data %>% is.na())
+
+#adding the yearly salary to the dataframe
+empatt_data$AnnualSalary <- empatt_data$MonthlyIncome * 12
+
+#create year end variables
+cut(empatt_data$AnnualSalary, breaks = c(0,49999,70000,99999,900000),
+    labels = c("50K_Under","50k_to_70K","70K_to_99K","Over_100K")
+    ) -> empatt_data$AnnualIncomeCategory
+
+# validate calculations
+empatt_data[c(1,50,60,80,100),c("MonthlyIncome","AnnualIncomeCategory","AnnualSalary")]
+
+
+# categoric parameters only
+empatt_data %>% keep(is.factor) -> empatt_data_factor
+
+empatt_data %>% keep(is.factor) %>% names -> catNames
+catNames
+
+# numeric parameters only
+empatt_data %>% keep(is.numeric) -> empatt_data_numeric.df
+# put parameter names into vector to verify
+empatt_data %>% keep(is.numeric) %>% names -> numNames
+numNames
+
+
+# histogram of all numeric values
+empatt_data_numeric.df %>% keep(is.numeric) %>% gather %>% ggplot(aes(x = value)) + facet_wrap(~key, scales = "free")+ geom_histogram()
+
+
+plot_vs_response <- function(x){
+  plot(empatt_data_numeric.df$MonthlyIncome ~ empatt_data_numeric.df[[x]], xlab = x)
+  lw1 <- loess(empatt_data_numeric.df$MonthlyIncome ~ empatt_data_numeric.df[[x]])
+  j <- order(empatt_data_numeric.df[[x]])
+  lines(empatt_data_numeric.df[[x]][j],lw1$fitted[j],col="blue",lwd=3)
+}
+
+lapply(numNames, plot_vs_response) 
+
+# Defining Plot Function
+catplot <- function(df, x,y){
+  ggplot(data = df, aes_string(x = x, fill = y)) + 
+    geom_bar(position = "fill", alpha = 0.9) + 
+    coord_flip()
+}
+
+# Annual Income: Total Breakdown
+count(empatt_data_factor, AnnualIncomeCategory)
+
+#attrition for Annual income category
+ggplot(empatt_data, aes(x=AnnualIncomeCategory, y=Attrition, fill=Attrition)) + geom_bar(stat="identity")+theme_minimal()+ggtitle("Annual Income Category by Attrition")
+
+#Jobrole and AnnualIncomeCategory
+ggplot(empatt_data, aes(x=JobRole, y=AnnualIncomeCategory, fill=AnnualIncomeCategory)) + geom_bar(stat="identity")+theme_minimal()+ggtitle("Jobrole and Annual Income breakdown")
+
+#Jobrole and Attrition
+ggplot(empatt_data, aes(x=JobRole, y=Attrition, fill=Attrition)) + geom_bar(stat="identity")+theme_minimal()+ggtitle("Jobrole and Attrition")
+
+# make vectors for annual income by attrition
+empatt_data$AnnualSalary[empatt_data$Attrition == "Yes"] -> Annualincome_Yes
+empatt_data$AnnualSalary[empatt_data$Attrition == "No"] -> Annualincome_No
+
+
+#histograms for annual salary
+hist(Annualincome_Yes, xlab = "Dollars", main = "Annual Salary for Attrition: Yes Distribution")
+hist(Annualincome_No, xlab = "Dollars", main = "Annual Salary for Attrition: No Distribution")
+
+#t-tests for annual salary attrition
+
+# qq plots for annual income attrition
+qqnorm(Annualincome_Yes)
+qqnorm(Annualincome_No)
+
+#we will try to use logs to understand if we normalize the data
+qqnorm(log(Annualincome_Yes))
+qqnorm(log(Annualincome_No))
+
+logAnnualincome_yes = log(Annualincome_Yes)
+logAnnualincome_no = log(Annualincome_No)
+
+# log transformation for the test
+t.test(logAnnualincome_yes, logAnnualincome_no, var.equal = F) 
+
+# excluding redundant AnnualIncome
+DF_Clean[,-c(3,34)] -> Employee_Attrition
+
+Employee_Salary_randforest <- randomForest(MonthlyIncome ~., 
+                                     data = Employee_Attrition, 
+                                     importance = TRUE)
+varImpPlot(Employee_Salary_randforest)
+
+
+#linear regression model
+
+Employee_Attrition -> emp_salary_reg.df
+
+lm(MonthlyIncome ~ ., data =  emp_salary_reg.df) -> emp_salary.lm
+summary(emp_salary.lm)
+
+vif(emp_salary.lm)
+
+#KNN model with data being split
+
+#drop annual salary
+DF_Clean[,-c(34)] -> DF_KNNdata
+
+### Creating 60/40 Training / Test Data Split 
+attrition.vector <- createDataPartition(DF_KNNdata$Attrition, p = 0.6, list = F)
+attrition.train <- DF_KNNdata[attrition.vector,] 
+attrition.test <- DF_KNNdata[-attrition.vector,]
+# validate train and test sets
+head(attrition.train)
+head(attrition.test)
+
+train.knn <- trainControl(
+  method = "repeatedcv",
+  number = 5,
+  repeats = 25,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE
+)
+# KNN on Training Set
+attrition.knn <- train(
+  Attrition ~ .,
+  data = attrition.train,
+  method = "knn",
+  metric = "Spec",
+  trControl = train.knn,
+  preProcess = c("center","scale"),
+  tuneLength = 6
+)
+
+# Adding predictions to Test Data
+predict(attrition.knn, newdata = attrition.test ) -> attrition.test$Attrition_KNN
+# creating confusion matrix
+confusionMatrix(
+  table(attrition.test$Attrition, attrition.test$Attrition_KNN )
+)
+
+# loading prediction data
+attrition_pred <- read.csv("/Users/adeel/Desktop/Data Science/Doing Data Science/Homework/Case Study 2/CaseStudy2CompSet No Attrition.csv", header=TRUE)
+                              
+str(attrition_pred)
+head(attrition_pred) 
+
+# generating predictions on test data
+attrition_pred$Attrition_KNN <- predict(attrition.knn, attrition_pred)
+
+write.csv(attrition_pred, "/Users/adeel/Desktop/Data Science/Doing Data Science/Homework/Case Study 2/Case2PredictionsClassifyAQ.csv")
+
+#random forest
+
+# set method to use 5-fold cross-validation
+trainControl(method = "cv", number = 5) -> train.cv
+train(MonthlyIncome ~ .,
+  data = emp_salary_reg.df,
+  method = "lmStepAIC",
+  trControl = train.cv
+) -> emp_salary.step
+# Final model
+summary(emp_salary.step)
+# Results including RMSE of final model
+emp_salary.step$results
+
+# Compare to Random Forest
+# emp_salary_reg.df[,-c(4,12)] -> emp_salary_reg.df
+train(MonthlyIncome ~ JobLevel + JobRole + TotalWorkingYears + YearsAtCompany + Age,
+  data = DF_Clean,
+  method = "lm",
+  trControl = train.cv
+) -> emp_salary_rf.step
+# Final model
+summary(emp_salary_rf.step)
+# Results including RMSE of final model
+emp_salary_rf.step$results
+
+#random forest
+
+salary_pred <- read.csv("/Users/adeel/Desktop/Data Science/Doing Data Science/Homework/Case Study 2/CaseStudy2CompSet No Salary.csv", header=TRUE)
+salary_pred 
+
+str(salary_pred)
+head(salary_pred) 
+# generating predictions on test data
+
+salary_pred$RF_Salary_Prediction <- predict(emp_salary_rf.step, newdata = salary_pred)
+salary_pred
+
+#Linear Regression Prediction
+
+# set method to use 5-fold cross-validation
+trainControl(method = "cv", number = 5) -> train.cv
+train(MonthlyIncome ~ .,
+  data = DF_KNNdata,
+  method = "lmStepAIC",
+  trControl = train.cv
+) -> emp_salary.step
+# Final model
+summary(emp_salary.step)
+# Results including RMSE of final model
+emp_salary.step$results
+
+salary_predLN <- read.csv("/Users/adeel/Desktop/Data Science/Doing Data Science/Homework/Case Study 2/CaseStudy2CompSet No Salary.csv", header=TRUE)
+salary_predLN 
+salary_predLN$MonthlyIncome_LM <- predict(emp_salary.step, newdata = salary_predLN)
+
+
+write.csv(salary_predLN, "/Users/adeel/Desktop/Data Science/Doing Data Science/Homework/Case Study 2/Case2PredictionsRegressAQ.csv")
+
+```
+
+
+
+
+
+
+
